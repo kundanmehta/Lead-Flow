@@ -64,7 +64,7 @@ class Lead {
             $params[':tag_id'] = $filters['tag_id'];
         }
 
-        $sql .= " ORDER BY l.id DESC LIMIT :limit OFFSET :offset";
+        $sql .= " ORDER BY l.created_at DESC LIMIT :limit OFFSET :offset";
 
         $stmt = $this->pdo->prepare($sql);
         foreach ($params as $key => &$val) {

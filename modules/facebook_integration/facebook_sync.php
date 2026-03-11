@@ -76,8 +76,9 @@ foreach ($forms as $form) {
                 // Store trace
                 $pdo->prepare("INSERT INTO facebook_leads (organization_id, page_id, form_id, leadgen_id, raw_data) VALUES (?, ?, ?, ?, ?)")->execute([$form['organization_id'], $form['page_id'], $form['form_id'], $leadgenId, json_encode($leadRaw)]);
 
-                // Store inside CRM pipeline
-                $stmtLead = $pdo->prepare("INSERT INTO leads (organization_id, name, phone, email, company, source, status, priority, assigned_to, note, meta_campaign, meta_form_id) VALUES (:org, :name, :phone, :email, :company, :source, 'New Lead', 'Hot', :assign, :note, :campaign, :form)");
+                // Store inside CRM pipeline, including exact Facebook submission time
+                $createdAt = isset($leadRaw['created_time']) ? date('Y-m-d H:i:s', strtotime($leadRaw['created_time'])) : date('Y-m-d H:i:s');
+                $stmtLead = $pdo->prepare("INSERT INTO leads (organization_id, name, phone, email, company, source, status, priority, assigned_to, note, meta_campaign, meta_form_id, created_at) VALUES (:org, :name, :phone, :email, :company, :source, 'New Lead', 'Hot', :assign, :note, :campaign, :form, :created)");
                 $stmtLead->execute([
                     'org' => $form['organization_id'],
                     'name' => $parsed['name'],
@@ -88,7 +89,8 @@ foreach ($forms as $form) {
                     'assign' => $agentId,
                     'note' => $parsed['note'],
                     'campaign' => $campaign,
-                    'form' => $form['form_id']
+                    'form' => $form['form_id'],
+                    'created' => $createdAt
                 ]);
 
                 $leadDbId = $pdo->lastInsertId();

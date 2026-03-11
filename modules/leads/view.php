@@ -108,6 +108,33 @@ include '../../includes/header.php';
             </div>
         </div>
 
+        <!-- Meta Form Details -->
+        <?php if (!empty($lead['note']) && strpos($lead['note'], '--- Facebook Lead Form Data ---') !== false): ?>
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white border-0 pt-4"><h6 class="fw-bold"><i class="bi bi-ui-checks-grid me-2 text-primary"></i>Submitted Form Details</h6></div>
+            <div class="card-body pt-0">
+                <div class="row g-0">
+                    <?php 
+                    $lines = explode("\n", trim(str_replace('--- Facebook Lead Form Data ---', '', $lead['note'])));
+                    foreach ($lines as $line):
+                        if (trim($line) === '') continue;
+                        $parts = explode(':', $line, 2);
+                        if (count($parts) === 2):
+                    ?>
+                    <div class="col-12 border-bottom py-3">
+                        <div class="small text-muted mb-1"><?= e(trim($parts[0])) ?></div>
+                        <div class="fw-semibold text-dark fs-6"><?= e(trim($parts[1])) ?></div>
+                    </div>
+                    <?php else: ?>
+                    <div class="col-12 border-bottom py-3">
+                        <div class="fw-semibold text-dark fs-6"><?= e(trim($line)) ?></div>
+                    </div>
+                    <?php endif; endforeach; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Quick Status Change -->
         <div class="card shadow-sm border-0 mb-4">
             <div class="card-header bg-white border-0 pt-4"><h6 class="fw-bold"><i class="bi bi-arrow-repeat me-2 text-info"></i>Quick Status Change</h6></div>

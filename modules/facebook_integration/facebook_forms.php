@@ -86,9 +86,9 @@ try {
                     $leadgenId = $leadRaw['id'];
 
                     // Bypass duplicate check for testing
-                    // $chkStmt = $pdo->prepare("SELECT id FROM facebook_leads WHERE leadgen_id = ?");
-                    // $chkStmt->execute([$leadgenId]);
-                    // if ($chkStmt->fetch()) continue;
+                    $chkStmt = $pdo->prepare("SELECT id FROM facebook_leads WHERE leadgen_id = ?");
+                    $chkStmt->execute([$leadgenId]);
+                    if ($chkStmt->fetch()) continue;
 
                     // Parse ALL form fields
                     $parsed = parseLeadFields($leadRaw);
@@ -103,8 +103,9 @@ try {
                     $stmtAgent->execute([$orgId]);
                     $agentId = $stmtAgent->fetchColumn() ?: null;
 
-                    // Insert into CRM leads table with ALL fields
-                    $stmtLead = $pdo->prepare("INSERT INTO leads (organization_id, name, phone, email, company, source, status, priority, assigned_to, note, meta_campaign, meta_form_id) VALUES (:org, :name, :phone, :email, :company, :source, 'New Lead', 'Hot', :assign, :note, :campaign, :form)");
+                    // Insert into CRM leads table with ALL fields, including exact Facebook submission time
+                    $createdAt = isset($leadRaw['created_time']) ? date('Y-m-d H:i:s', strtotime($leadRaw['created_time'])) : date('Y-m-d H:i:s');
+                    $stmtLead = $pdo->prepare("INSERT INTO leads (organization_id, name, phone, email, company, source, status, priority, assigned_to, note, meta_campaign, meta_form_id, created_at) VALUES (:org, :name, :phone, :email, :company, :source, 'New Lead', 'Hot', :assign, :note, :campaign, :form, :created)");
                     $stmtLead->execute([
                         'org' => $orgId,
                         'name' => $parsed['name'],
@@ -115,7 +116,8 @@ try {
                         'assign' => $agentId,
                         'note' => $parsed['note'],
                         'campaign' => $leadRaw['campaign_name'] ?? $f['name'],
-                        'form' => $f['id']
+                        'form' => $f['id'],
+                        'created' => $createdAt
                     ]);
 
                     $totalLeads++;

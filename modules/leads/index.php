@@ -12,27 +12,32 @@ $leadModel = new Lead($pdo);
 $userModel = new User($pdo);
 
 // Handle bulk actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
-    $ids = $_POST['lead_ids'] ?? [];
-    if (!empty($ids)) {
-        switch ($_POST['bulk_action']) {
-            case 'delete':
-                $leadModel->bulkDelete($ids);
-                redirect(BASE_URL . 'modules/leads/', count($ids) . ' leads deleted.', 'success');
-                break;
-            case 'assign':
-                if (!empty($_POST['bulk_agent'])) {
-                    $leadModel->bulkAssign($ids, $_POST['bulk_agent'], getUserId());
-                    redirect(BASE_URL . 'modules/leads/', count($ids) . ' leads assigned.', 'success');
-                }
-                break;
-            default:
-                // Status change
-                if ($_POST['bulk_action']) {
-                    $leadModel->bulkUpdateStatus($ids, $_POST['bulk_action'], getUserId());
-                    redirect(BASE_URL . 'modules/leads/', count($ids) . ' leads updated.', 'success');
-                }
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['bulk_action'])) {
+        $ids = $_POST['lead_ids'] ?? [];
+        if (!empty($ids)) {
+            switch ($_POST['bulk_action']) {
+                case 'delete':
+                    $leadModel->bulkDelete($ids);
+                    redirect(BASE_URL . 'modules/leads/', count($ids) . ' leads deleted.', 'success');
+                    break;
+                case 'assign':
+                    if (!empty($_POST['bulk_agent'])) {
+                        $leadModel->bulkAssign($ids, $_POST['bulk_agent'], getUserId());
+                        redirect(BASE_URL . 'modules/leads/', count($ids) . ' leads assigned.', 'success');
+                    }
+                    break;
+                default:
+                    // Status change
+                    if ($_POST['bulk_action']) {
+                        $leadModel->bulkUpdateStatus($ids, $_POST['bulk_action'], getUserId());
+                        redirect(BASE_URL . 'modules/leads/', count($ids) . ' leads updated.', 'success');
+                    }
+            }
         }
+    } elseif (isset($_POST['single_assign'])) {
+        $leadModel->bulkAssign([$_POST['lead_id']], $_POST['agent_id'] ?: null, getUserId());
+        redirect(BASE_URL . 'modules/leads/', 'Lead assigned successfully.', 'success');
     }
 }
 
@@ -144,31 +149,71 @@ include '../../includes/header.php';
                     <thead>
                         <tr>
                             <th width="30"><input type="checkbox" id="selectAll" class="form-check-input"></th>
-                            <th>Name</th>
-                            <th>Phone</th>
-                            <th>Status</th>
-                            <th>Priority</th>
-                            <th>Source</th>
-                            <th>Agent</th>
-                            <th>Date</th>
-                            <th width="80">Actions</th>
+                            <th class="text-secondary fw-semibold small text-uppercase">NAME</th>
+                            <th class="text-secondary fw-semibold small text-uppercase">NOTES</th>
+                            <th width="140" class="text-secondary fw-semibold small text-uppercase">PHONE NUMBER</th>
+                            <th width="120" class="text-secondary fw-semibold small text-uppercase">DATE</th>
+                            <th width="140" class="text-secondary fw-semibold small text-uppercase">ASSIGNED TO</th>
+                            <th width="100" class="text-secondary fw-semibold small text-uppercase">STATUS</th>
+                            <th width="60" class="text-secondary fw-semibold small text-uppercase">ACTIONS</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($leads as $lead): ?>
                         <tr>
                             <td><input type="checkbox" name="lead_ids[]" value="<?= $lead['id'] ?>" class="form-check-input lead-check"></td>
-                            <td><a href="<?= BASE_URL ?>modules/leads/view.php?id=<?= $lead['id'] ?>" class="fw-semibold text-dark text-decoration-none"><?= e($lead['name']) ?></a><br><small class="text-muted"><?= e($lead['company'] ?: '') ?></small></td>
-                            <td class="small"><?= e($lead['phone']) ?></td>
-                            <td><span class="badge <?= getStatusBadgeClass($lead['status']) ?> rounded-pill px-2 py-1"><?= e($lead['status']) ?></span></td>
-                            <td><span class="badge <?= getPriorityBadgeClass($lead['priority'] ?? 'Warm') ?> rounded-pill px-2 py-1"><i class="bi <?= getPriorityIcon($lead['priority'] ?? 'Warm') ?> me-1"></i><?= e($lead['priority'] ?? 'Warm') ?></span></td>
-                            <td class="small text-muted"><?= e($lead['source'] ?: '—') ?></td>
-                            <td class="small"><?= e($lead['agent_name'] ?: 'Unassigned') ?></td>
-                            <td class="small text-muted"><?= formatDate($lead['created_at'], 'M d') ?></td>
+                            <td>
+                                <a href="<?= BASE_URL ?>modules/leads/view.php?id=<?= $lead['id'] ?>" class="fw-bold text-dark text-decoration-none" style="font-size: 14.5px;">
+                                    <i class="bi bi-stars text-primary me-1" style="font-size: 12px;"></i><?= e($lead['name']) ?>
+                                </a>
+                                <?php if ($lead['company']): ?>
+                                <br><small class="text-muted ps-3"><?= e($lead['company']) ?></small>
+                                <?php endif; ?>
+                            </td>
+                            <td class="small text-muted">
+                                <?php 
+                                $previewNote = $lead['note'] ?? '';
+                                $previewNote = trim(str_replace("--- Facebook Lead Form Data ---", "", $previewNote));
+                                $previewNote = str_replace("\n", " • ", $previewNote);
+                                if (empty($previewNote) && $lead['source'] === 'facebook_ads') {
+                                    $previewNote = "Facebook Lead via " . ($lead['meta_campaign'] ?? 'Unknown');
+                                }
+                                ?>
+                                <div style="max-width: 280px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6e7a91;" class="fw-normal" title="<?= e($previewNote) ?>">
+                                    <?= e($previewNote ?: 'No details available') ?>
+                                </div>
+                            </td>
+                            <td class="fw-semibold text-primary" style="font-size: 14px;"><?= trim(e($lead['phone'] ?: '—')) ?></td>
+                            <td class="small">
+                                <?php 
+                                $dt = strtotime($lead['created_at']);
+                                echo '<div class="fw-semibold text-dark">' . date('M d, Y', $dt) . '</div>';
+                                echo '<div class="text-muted" style="font-size: 11px;">' . date('h:i A', $dt) . '</div>';
+                                ?>
+                            </td>
+                            <td>
+                                <form method="POST" action="" class="m-0 p-0">
+                                    <input type="hidden" name="lead_id" value="<?= $lead['id'] ?>">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary text-white rounded me-2 d-flex align-items-center justify-content-center" style="width:24px; height:24px;">
+                                            <i class="bi bi-person-check small"></i>
+                                        </div>
+                                        <select name="agent_id" class="form-select border-0 bg-transparent text-primary fw-semibold p-0 m-0" onchange="this.form.submit()" style="cursor:pointer; box-shadow: none; font-size: 13.5px; width: auto;">
+                                            <option value="">Unassigned</option>
+                                            <?php foreach ($agents as $agent): ?>
+                                                <option value="<?= $agent['id'] ?>" <?= $lead['assigned_to'] == $agent['id'] ? 'selected' : '' ?>>
+                                                    <?= e($agent['name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <input type="hidden" name="single_assign" value="1">
+                                </form>
+                            </td>
+                            <td><span class="badge <?= getStatusBadgeClass($lead['status']) ?> rounded-pill px-2 py-1" style="font-size: 11px;"><?= e($lead['status']) ?></span></td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="<?= BASE_URL ?>modules/leads/view.php?id=<?= $lead['id'] ?>" class="btn btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
-                                    <a href="<?= BASE_URL ?>modules/leads/edit.php?id=<?= $lead['id'] ?>" class="btn btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                                    <a href="<?= BASE_URL ?>modules/leads/view.php?id=<?= $lead['id'] ?>" class="btn btn-light border btn-sm text-primary" title="View"><i class="bi bi-eye"></i></a>
                                 </div>
                             </td>
                         </tr>
