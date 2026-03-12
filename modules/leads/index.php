@@ -115,7 +115,8 @@ include '../../includes/header.php';
 <div class="card shadow-sm border-0">
     <div class="card-header bg-white border-0 pt-4 d-flex justify-content-between align-items-center">
         <h6 class="fw-bold mb-0"><i class="bi bi-people me-2 text-primary"></i>Leads <span class="badge bg-primary bg-opacity-10 text-primary ms-2"><?= $totalLeads ?></span></h6>
-        <div>
+        <div class="d-flex gap-2">
+            <a href="<?= BASE_URL ?>modules/leads/export.php?<?= http_build_query($filters) ?>" class="btn btn-outline-success btn-sm"><i class="bi bi-file-earmark-excel me-1"></i>Export to Excel</a>
             <a href="<?= BASE_URL ?>modules/leads/add.php" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add Lead</a>
         </div>
     </div>

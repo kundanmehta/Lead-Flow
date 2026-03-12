@@ -466,5 +466,72 @@ class Lead {
         $this->logActivity($leadId, 'status_change', 'Pipeline stage updated', null, $stageId, $userId);
         return $result;
     }
+
+    /**
+     * Get filtered leads for export without pagination
+     */
+    public function getFilteredLeadsForExport($orgId, $filters = []) {
+        $sql = "SELECT l.*, u.name as agent_name
+                FROM leads l
+                LEFT JOIN users u ON l.assigned_to = u.id
+                WHERE l.organization_id = :org_id";
+        $params = [':org_id' => $orgId];
+
+        // Search filter
+        if (!empty($filters['search'])) {
+            $sql .= " AND (l.name LIKE :search OR l.phone LIKE :search OR l.email LIKE :search OR l.company LIKE :search)";
+            $params[':search'] = "%" . $filters['search'] . "%";
+        }
+
+        // Status filter
+        if (!empty($filters['status'])) {
+            $sql .= " AND l.status = :status";
+            $params[':status'] = $filters['status'];
+        }
+
+        // Priority filter
+        if (!empty($filters['priority'])) {
+            $sql .= " AND l.priority = :priority";
+            $params[':priority'] = $filters['priority'];
+        }
+
+        // Source filter
+        if (!empty($filters['source'])) {
+            $sql .= " AND l.source = :source";
+            $params[':source'] = $filters['source'];
+        }
+
+        // Assigned agent filter
+        if (!empty($filters['assigned_to'])) {
+            $sql .= " AND l.assigned_to = :assigned_to";
+            $params[':assigned_to'] = $filters['assigned_to'];
+        }
+
+        // Date range filter
+        if (!empty($filters['date_from'])) {
+            $sql .= " AND DATE(l.created_at) >= :date_from";
+            $params[':date_from'] = $filters['date_from'];
+        }
+        if (!empty($filters['date_to'])) {
+            $sql .= " AND DATE(l.created_at) <= :date_to";
+            $params[':date_to'] = $filters['date_to'];
+        }
+
+        // Tag filter
+        if (!empty($filters['tag_id'])) {
+            $sql .= " AND l.id IN (SELECT lead_id FROM lead_tag_map WHERE tag_id = :tag_id)";
+            $params[':tag_id'] = $filters['tag_id'];
+        }
+
+        $sql .= " ORDER BY l.created_at DESC";
+
+        $stmt = $this->pdo->prepare($sql);
+        foreach ($params as $key => &$val) {
+            $stmt->bindParam($key, $val);
+        }
+
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
 }
 ?>
